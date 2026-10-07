@@ -1,11 +1,11 @@
 # Traffic System Control Project
 
 Material List:
-Arduino UNO R3
-2x Adafruit VL53L0X Time of Flight Sensors
-1x Adafruit TCA9548A I2C Multiplexer
-Standard Breadboard
-6x 220 OHM Resistor
+- Arduino UNO R3
+- 2x Adafruit VL53L0X Time of Flight Sensors
+- 1x Adafruit TCA9548A I2C Multiplexer
+- Standard Breadboard
+- 6x 220 OHM Resistor
 
 ## Resources Used
 
