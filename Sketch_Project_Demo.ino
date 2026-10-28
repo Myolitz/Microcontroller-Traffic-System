@@ -1,98 +1,146 @@
 #include <Wire.h>
 #include "Adafruit_VL53L0X.h"
+#include <Arduino.h>
 
-#define MULTIPLEXER 0x70
+#define TCAADDR 0x70
 
-//Both Sensors
+// External Devices
 Adafruit_VL53L0X sensorOne = Adafruit_VL53L0X();
 Adafruit_VL53L0X sensorTwo = Adafruit_VL53L0X();
+VL53L0X_RangingMeasurementData_t measure;
 
 //First Traffic LED
-const int grnPinOne = A2;
-const int ylwPinOne = A4;
-const int redPinOne = A6;
+const int grnPinOne = 2;
+const int ylwPinOne = 3;
+const int redPinOne = 4;
 
 //Second Traffic LED
-const int grnPinTwo = A3;
-const int ylwPinTwo = A5;
-const int redPinTwo = A7;
+const int grnPinTwo = 5;
+const int ylwPinTwo = 6;
+const int redPinTwo = 7;
 
 // Machine State
-bool firstSignal;
-bool secSignal;
+bool firstSignal, secSignal, greenOn;
 
 // Generic Variables
-const int thresholdNum = 500;
+const int thresholdNum = 250;
 const int lockTimer = 10000;
 int sensOneDist;
 int sensTwoDist;
 
+const uint8_t CH_ONE = 2;
+const uint8_t CH_TWO = 7;
 
 //User-Created Functions
-
-/*
-  Used for debugging, based on Adafruit's Official Multiplex Documentation
-*/
-void tcaseselect(uint8_t i)
-{
-  if (i > 7)
-  {
-    return;
-  }
-  
-  Wire.beginTransmission(MULTIPLEXER);
+bool tcaselect(uint8_t i) { //Based off Adafruit's TCA Documentation
+  if (i > 7) return false;
+  Wire.beginTransmission(TCAADDR);
   Wire.write(1 << i);
-  Wire.endTransmission();
+  uint8_t err = Wire.endTransmission();
+  if (Wire.endTransmission()) {
+    Serial.print("TCA error "); Serial.print(err);
+    Serial.print(" on ch "); Serial.println(i);
+  }
+  return err == 0;
 }
 
 void activateSecondSignal() //Switching from one state to another
 {
   digitalWrite(grnPinOne, LOW);
-  delay(10);
+  delay(3000);
   digitalWrite(ylwPinOne, HIGH);
-  delay(10);
+  delay(3000);
   digitalWrite(ylwPinOne, LOW);
-  delay(10);
+  delay(1500);
   digitalWrite(redPinOne, HIGH);
   digitalWrite(grnPinTwo, HIGH);
 
   firstSignal = false;
-  secondSignal = true;
+  secSignal = true;
+  greenOn = false;
+}
+
+void activateFirstSignal()
+{
+  digitalWrite(grnPinTwo, LOW);
+  delay(3000);
+  digitalWrite(ylwPinTwo, HIGH);
+  delay(3000);
+  digitalWrite(ylwPinTwo, LOW);
+  delay(1500);
+  digitalWrite(redPinTwo, HIGH);
+  digitalWrite(grnPinOne, HIGH);
+
+  firstSignal = true;
+  secSignal = false;
+  greenOn = false;
 }
 
 void setup() {
-  // put your setup code here, to run once:
+
+  while (!Serial);
+  delay(1000);
+
+  //Beginning the two objects
+  tcaselect(CH_ONE);
+  sensorOne.begin();
+  sensorOne.rangingTest(&measure, false);
+
+  tcaselect(CH_TWO);
+  sensorTwo.begin();
+  sensorTwo.rangingTest(&measure, false);
 
   //Interval of Information Throughput
   Serial.begin(115200);
 
-  //Beginning the Wire Library for I2C information reading.
-  Wire.begin();
-
   //Putting the LED Pins on OUTPUT Mode
-  PinMode(grnPinOne, OUTPUT);
-  PinMode(grnPinTwo, OUTPUT);
-  PinMode(ylwPinOne, OUTPUT);
-  PinMode(ylwPinTwo, OUTPUT);
-  PinMode(redPinOne, OUTPUT);
-  PinMode(redPinTwo, OUTPUT);
+  pinMode(grnPinOne, OUTPUT);
+  pinMode(grnPinTwo, OUTPUT);
+  pinMode(ylwPinOne, OUTPUT);
+  pinMode(ylwPinTwo, OUTPUT);
+  pinMode(redPinOne, OUTPUT);
+  pinMode(redPinTwo, OUTPUT);
 
   //Initializing Variables
   firstSignal = true;
-  secondSignal = false;
-
-
+  secSignal = false;
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
 
+  
+  
+
   if (firstSignal)
   {
-    while (sensOneDist < thresholdNum)
+    tcaselect(CH_ONE);
+    while (sensOneDist > thresholdNum)
     {
-      sensOneDist = sensorOne.readRange();
+      if (!greenOn)
+      {
+        digitalWrite(grnPinOne, HIGH);
+        greenOn = true;
+      }
+      sensOneDist = measure.RangeMilliMeter;
+      Serial.print("SensOneDist: "); Serial.print(sensOneDist);
+      delay(1000);
     }
+    activateSecondSignal();
   }
-
+  if (secSignal)
+  {
+    tcaselect(CH_TWO);
+    while (sensTwoDist < thresholdNum)
+    {
+      if (!greenOn)
+      {
+        digitalWrite(grnPinTwo, HIGH);
+        greenOn = true;
+      }
+      sensTwoDist = measure.RangeMilliMeter;
+      delay(1000);
+    }
+    activateSecondSignal();
+  }
 }
