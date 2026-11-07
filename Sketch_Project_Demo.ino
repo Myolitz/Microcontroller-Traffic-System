@@ -1,146 +1,162 @@
+// Author: Jesus Cardenas
+// Class: ETEE 3376 01
+// Semester: Fall 2026
+// Professor: Dr. Basith
+
 #include <Wire.h>
 #include "Adafruit_VL53L0X.h"
 #include <Arduino.h>
 
 #define TCAADDR 0x70
 
-// External Devices
+/*============================================
+
+GLOBAL VARIABLES BELOW
+
+============================================*/
+
+// Distance Sensors
 Adafruit_VL53L0X sensorOne = Adafruit_VL53L0X();
 Adafruit_VL53L0X sensorTwo = Adafruit_VL53L0X();
-VL53L0X_RangingMeasurementData_t measure;
 
-//First Traffic LED
-const int grnPinOne = 2;
-const int ylwPinOne = 3;
-const int redPinOne = 4;
+// Multiplexer Channels
+const uint8_t channelOne = 7;
+const uint8_t channelTwo = 2;
 
-//Second Traffic LED
-const int grnPinTwo = 5;
-const int ylwPinTwo = 6;
-const int redPinTwo = 7;
+// LED Pins
+const int pinList[] = {2, 3, 4, 8, 9, 10};
+const int sensOnePins[] = 
+{
+  2,  // GRN
+  3,  // YLW
+  4   // RED
+};
+
+const int sensTwoPins[] =
+{
+  10,   // GRN
+  9,    // YLW
+  8     // RED
+};
 
 // Machine State
-bool firstSignal, secSignal, greenOn;
+int signalState; // 0: Sensor 1 (CH 7) is relevant, 1; Sensor 2 (CH 2) is relevant.
 
 // Generic Variables
-const int thresholdNum = 250;
-const int lockTimer = 10000;
-int sensOneDist;
-int sensTwoDist;
+const int thresholdNum = 50; // If sensor < thresholdNum -> do something
+const int lockTimer = 10000; // 10 Second Lockout
 
-const uint8_t CH_ONE = 2;
-const uint8_t CH_TWO = 7;
+// Enables/Disables Debug Mode
+bool debug = false;
 
-//User-Created Functions
+
+/*============================================
+
+USER FUNCTIONS BELOW
+
+============================================*/
+
+void firstInitial()
+{
+  digitalWrite(sensOnePins[0], HIGH);
+  digitalWrite(sensTwoPins[2], HIGH);
+}
+
 bool tcaselect(uint8_t i) { //Based off Adafruit's TCA Documentation
   if (i > 7) return false;
   Wire.beginTransmission(TCAADDR);
   Wire.write(1 << i);
   uint8_t err = Wire.endTransmission();
-  if (Wire.endTransmission()) {
+  if (err != 0) {
     Serial.print("TCA error "); Serial.print(err);
     Serial.print(" on ch "); Serial.println(i);
   }
   return err == 0;
 }
 
-void activateSecondSignal() //Switching from one state to another
-{
-  digitalWrite(grnPinOne, LOW);
-  delay(3000);
-  digitalWrite(ylwPinOne, HIGH);
-  delay(3000);
-  digitalWrite(ylwPinOne, LOW);
-  delay(1500);
-  digitalWrite(redPinOne, HIGH);
-  digitalWrite(grnPinTwo, HIGH);
+/*============================================
 
-  firstSignal = false;
-  secSignal = true;
-  greenOn = false;
-}
+`SETUP` AND `LOOP` BELOW
 
-void activateFirstSignal()
-{
-  digitalWrite(grnPinTwo, LOW);
-  delay(3000);
-  digitalWrite(ylwPinTwo, HIGH);
-  delay(3000);
-  digitalWrite(ylwPinTwo, LOW);
-  delay(1500);
-  digitalWrite(redPinTwo, HIGH);
-  digitalWrite(grnPinOne, HIGH);
-
-  firstSignal = true;
-  secSignal = false;
-  greenOn = false;
-}
+============================================*/
 
 void setup() {
 
-  while (!Serial);
-  delay(1000);
-
-  //Beginning the two objects
-  tcaselect(CH_ONE);
-  sensorOne.begin();
-  sensorOne.rangingTest(&measure, false);
-
-  tcaselect(CH_TWO);
-  sensorTwo.begin();
-  sensorTwo.rangingTest(&measure, false);
-
-  //Interval of Information Throughput
   Serial.begin(115200);
+  while (!Serial);
+  Wire.begin();
+
+  //Debug Message
+  Serial.println("Initiating New Run");
+
+  // Selecting TCA channel and initializing the sensor
+  Serial.println(tcaselect(channelOne) ? "ch 7 select OK" : "ch 7 select FAIL");
+  Serial.println(sensorOne.begin() ? "Sensor 1 OK" : "Sensor 1 failed");
+
+  // Repeat for second Sensor
+  Serial.println(tcaselect(channelTwo) ? "ch 7 select OK" : "ch 7 select FAIL");
+  Serial.println(sensorTwo.begin() ? "Sensor 2 OK" : "Sensor 2 failed");
 
   //Putting the LED Pins on OUTPUT Mode
-  pinMode(grnPinOne, OUTPUT);
-  pinMode(grnPinTwo, OUTPUT);
-  pinMode(ylwPinOne, OUTPUT);
-  pinMode(ylwPinTwo, OUTPUT);
-  pinMode(redPinOne, OUTPUT);
-  pinMode(redPinTwo, OUTPUT);
+  for (int i : pinList)
+  {
+    pinMode(i, OUTPUT);
+  }
 
-  //Initializing Variables
-  firstSignal = true;
-  secSignal = false;
+  //Setting Signal State
+  signalState = 0;
+  
+  firstInitial(); // Sets up the circuit to its "default" state  
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-
-  
-  
-
-  if (firstSignal)
+  if (debug) // Goes through simple light sequence.
   {
-    tcaselect(CH_ONE);
-    while (sensOneDist > thresholdNum)
-    {
-      if (!greenOn)
-      {
-        digitalWrite(grnPinOne, HIGH);
-        greenOn = true;
-      }
-      sensOneDist = measure.RangeMilliMeter;
-      Serial.print("SensOneDist: "); Serial.print(sensOneDist);
-      delay(1000);
-    }
-    activateSecondSignal();
+    digitalWrite(sensOnePins[0], HIGH);
+    digitalWrite(sensTwoPins[0], HIGH);
+
+    delay(lockTimer / 2);
+
+    digitalWrite(sensOnePins[1], HIGH);
+    digitalWrite(sensTwoPins[1], HIGH);
+
+    delay(lockTimer / 2);
+
+    digitalWrite(sensTwoPins[2], HIGH);
+    digitalWrite(sensOnePins[2], HIGH);
   }
-  if (secSignal)
+  else 
   {
-    tcaselect(CH_TWO);
-    while (sensTwoDist < thresholdNum)
+    if (signalState != 1)
     {
-      if (!greenOn)
+      int sensTwoDist = 10000;
+      tcaselect(channelTwo);
+      sensorTwo.startRangeContinuous();
+      while (sensTwoDist == -1 || sensTwoDist == 10000) // Means theres an "invalid" distance measurement or 10000 means default state
       {
-        digitalWrite(grnPinTwo, HIGH);
-        greenOn = true;
+        sensTwoDist = sensorTwo.readRange();
+
+        //Debug Printing
+        Serial.print("Sensor Two Distance: "); Serial.println(sensTwoDist);
+        delay(1000);
+
+        if (sensTwoDist < thresholdNum)
+        {
+          sensorTwo.stopRangeContinuous(); // Stop the readings
+
+          Serial.print("Threshold Reached! Switching Signals"); // Debug Print
+          delay(10000);
+
+          //Second Signal Method
+        }
+        else { continue; }
       }
-      sensTwoDist = measure.RangeMilliMeter;
-      delay(1000);
     }
-    activateSecondSignal();
+    else 
+    {
+      int sensOneDist = 10000;
+      tcaselect(channelOne);
+      sensorOne.startRangeContinuous();
+    }
   }
 }
