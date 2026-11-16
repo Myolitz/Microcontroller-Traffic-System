@@ -37,13 +37,11 @@ const uint8_t signalTwoPins[] =
   8   // RED
 };
 
-// Machine State
-uint8_t signalState;
-
 // Threshold Nums
 const uint8_t thresholdNum = 100; // 100 mm
 const uint16_t lightTimer = 5000; // 5 Sec
 const uint16_t lockTimer = 10000; // 10 Sec
+int sensDist;
 
 // LED Debug
 bool debug = false;
@@ -62,44 +60,46 @@ void firstInitial()
 
 void firstSignal()
 {
-  digitalWrite(signalTwoPins[0], LOW);
-  digitalWrite(signalTwoPins[1], HIGH);
+
+  digitalWrite(signalTwoPins[0], LOW); // GRN 2 LOW
+  digitalWrite(signalTwoPins[1], HIGH); // YLW 2 HIGH
 
   delay(lightTimer);
 
-  digitalWrite(signalTwoPins[1], LOW);
-  digitalWrite(signalTwoPins[2], HIGH);
+  digitalWrite(signalTwoPins[1], LOW); // YLW 2 LOW
+  digitalWrite(signalTwoPins[2], HIGH); // RED 2 HIGH
 
   delay(lightTimer);
 
-  digitalWrite(signalOnePins[2], LOW);
-  digitalWrite(signalOnePins[0], HIGH);
+  digitalWrite(signalOnePins[2], LOW); // RED 1 LOW
+  digitalWrite(signalOnePins[0], HIGH); // GRN 1 HIGH
 
-  signalState = 0;
+  sensDist = 10000;
 
   delay(lockTimer);
 }
 
 void secondSignal()
 {
-  signalState = 1;
   
-  digitalWrite(signalOnePins[0], LOW);
-  digitalWrite(signalOnePins[1], HIGH);
+  digitalWrite(signalOnePins[0], LOW); // GRN 1 LOW
+  digitalWrite(signalOnePins[1], HIGH); // YLW 1 HIGH
 
   delay(lightTimer);
 
-  digitalWrite(signalOnePins[1], LOW);
-  digitalWrite(signalOnePins[2], HIGH);
+  digitalWrite(signalOnePins[1], LOW); // YLW 1 LOW
+  digitalWrite(signalOnePins[2], HIGH); // RED 1 HIGH
 
   delay(lightTimer);
 
-  digitalWrite(signalTwoPins[2], LOW);
-  digitalWrite(signalTwoPins[0], HIGH);
+  digitalWrite(signalTwoPins[2], LOW); // RED 2 LOW
+  digitalWrite(signalTwoPins[0], HIGH); // GRN 2 HIGH
 
-  
+  sensDist = 10000;
 
   delay(lockTimer);
+
+  firstSignal();
 }
 
 bool tcaselect(uint8_t i) { //Based off Adafruit's TCA Documentation
@@ -139,7 +139,7 @@ void setup() {
     pinMode(i, OUTPUT); 
   }
 
-  signalState = 0;
+  sensDist = 10000;
 
   firstInitial();
 }
@@ -157,44 +157,23 @@ void loop() {
   else
   {
     tcaselect(sensorChannel);
-    switch (signalState)
+
+    while ((sensDist != 8190 && sensDist > thresholdNum))
     {
-      case 0:
-      int sensDist = 10000;
-      while ((sensDist == 8190 || sensDist == 10000) || sensDist > thresholdNum)
+      int sensDist = sensorOne.readRange();
+
+      Serial.print("Sensor Distance is: "); Serial.println(sensDist);
+      delay(1000);
+
+      if (sensDist < thresholdNum)
       {
-        sensDist = sensorOne.readRange();
+        Serial.println("Threshold Reached! Swapping Signals!");
+        sensDist = 10000;
 
-        Serial.print("Sensor Distance is: "); Serial.println(sensDist);
-        delay(1000);
-        
-        if (sensDist < thresholdNum)
-        {
-          Serial.println(" Threshold Reached! Swapping Signals! ");
-
-          secondSignal();
-        }
+        secondSignal();
       }
-      break;
-      case 1:
-      int sensDist = 10000;
-      while ((sensDist == 8190 || sensDist == 10000) || sensDist > thresholdNum)
-      {
-        sensDist = sensorOne.readRange();
 
-        Serial.print("Sensor Distance is: "); Serial.println(sensDist);
-        delay(1000);
-        
-        if (sensDist < thresholdNum)
-        {
-          Serial.println(" Threshold Reached! Swapping Signals! ");
 
-          firstSignal();
-        }
-      }
-      break;
     }
   }
-
-
 }
