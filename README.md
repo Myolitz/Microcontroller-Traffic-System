@@ -1,13 +1,13 @@
 # Traffic System Control Project
 
-Material List:
+## Material List:
 - Arduino UNO R3
-- 2x Adafruit VL53L0X Time of Flight Sensors
-- 1x Adafruit TCA9548A I2C Multiplexer
+- 2x Adafruit VL53L0X Time of Flight Sensors (ToFS)
+- 1x Adafruit TCA9548A I2C Multiplexer (TI2C)
 - Standard Breadboard
 - 2x 220 OHM Resistor
-- 2x Traffic Light LED Modules
-
+- 2x Traffic Light LED Modules (TLED)
+- 
 ## Resources Used
 
 1. https://docs.arduino.cc/language-reference/en/functions/communication/wire/
@@ -22,4 +22,5 @@ Due to my lack of experience in low-memory programming, Artificial Intelligence 
 
 ## Other Notes
 
-The VL53L0X libraries take up ~25% of dynamic memory per instance so it could further be improved, TBD.
+The VL53L0X libraries take up ~25% of dynamic memory per instance so memory efficiency could be further improved.
+- Project is scalable in theory, but the above needs to be addressed first assuming the same ToFS is used.
