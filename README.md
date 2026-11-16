@@ -1,5 +1,7 @@
 # Traffic System Control Project
 
+The purpose of this project is/was to replicate a traditional traffic control system on a smaller scale using distance sensors and a microcontroller. The general logic is that the signals will assume a `default` light status and (a) sensor(s) dictate which light should change and when.
+
 ## Material List:
 - Arduino UNO R3
 - 2x Adafruit VL53L0X Time of Flight Sensors (ToFS)
